@@ -1,0 +1,52 @@
+--- php-5.2.17_orig/ext/standard/dl.c	2010-01-03 12:23:27.000000000 +0300
++++ php-5.2.17/ext/standard/dl.c	2015-03-24 11:49:29.946114997 +0300
+@@ -126,28 +126,28 @@
+ 	} else {
+ 		error_type = E_CORE_WARNING;
+ 	}
++        /* Check if passed filename contains directory separators */
++        if (strchr(Z_STRVAL_P(file), '/') != NULL || strchr(Z_STRVAL_P(file), DEFAULT_SLASH) != NULL) {
++                /* Passing modules with full path is not supported for dynamically loaded extensions */
++                if (type == MODULE_TEMPORARY) {
++                        php_error_docref(NULL TSRMLS_CC, E_WARNING, "Temporary module name should contain only filename");
++                        return FAILURE;
++                }
++                libpath = estrdup(Z_STRVAL_P(file));
++        } else if (extension_dir && extension_dir[0]) {
++                int extension_dir_len = strlen(extension_dir);
++
++                if (IS_SLASH(extension_dir[extension_dir_len-1])) {
++                        spprintf(&libpath, 0, "%s%s", extension_dir, Z_STRVAL_P(file)); /* SAFE */
++                } else {
++                        spprintf(&libpath, 0, "%s%c%s", extension_dir, DEFAULT_SLASH, Z_STRVAL_P(file)); /* SAFE */
++                }
++        } else {
++                return FAILURE; /* Not full path given or extension_dir is not set */
++        }
+ 
+-	if (extension_dir && extension_dir[0]){
+-		int extension_dir_len = strlen(extension_dir);
+-
+-		if (type == MODULE_TEMPORARY) {
+-			if (strchr(Z_STRVAL_P(file), '/') != NULL || strchr(Z_STRVAL_P(file), DEFAULT_SLASH) != NULL) {
+-				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Temporary module name should contain only filename");
+-				RETURN_FALSE;
+-			}
+-		}
+-
+-		if (IS_SLASH(extension_dir[extension_dir_len-1])) {
+-			spprintf(&libpath, 0, "%s%s", extension_dir, Z_STRVAL_P(file));
+-		} else {
+-			spprintf(&libpath, 0, "%s%c%s", extension_dir, DEFAULT_SLASH, Z_STRVAL_P(file));
+-		}
+-	} else {
+-		libpath = estrndup(Z_STRVAL_P(file), Z_STRLEN_P(file));
+-	}
+-
+-	/* load dynamic symbol */
+-	handle = DL_LOAD(libpath);
++        /* load dynamic symbol */
++        handle = DL_LOAD(libpath);
+ 	if (!handle) {
+ 		php_error_docref(NULL TSRMLS_CC, error_type, "Unable to load dynamic library '%s' - %s", libpath, GET_DL_ERROR());
+ 		GET_DL_ERROR(); /* free the buffer storing the error */
