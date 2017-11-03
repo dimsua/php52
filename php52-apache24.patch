@@ -1,0 +1,50 @@
+diff -uNr php-5.2.17_orig/sapi/apache2handler/php_functions.c php-5.2.17/sapi/apache2handler/php_functions.c
+--- php-5.2.17_orig/sapi/apache2handler/php_functions.c 2010-01-03 12:23:27.000000000 +0300
++++ php-5.2.17/sapi/apache2handler/php_functions.c      2017-07-11 16:01:57.755300917 +0300
+@@ -383,8 +383,12 @@
+        char *p;
+        server_rec *serv = ((php_struct *) SG(server_context))->r->server;
+ #if !defined(WIN32) && !defined(WINNT) && !defined(NETWARE)
++#if MODULE_MAGIC_NUMBER_MAJOR >= 20081201
++        AP_DECLARE_DATA extern unixd_config_rec ap_unixd_config;
++#else
+        AP_DECLARE_DATA extern unixd_config_rec unixd_config;
+ #endif
++#endif
+
+        for (n = 0; ap_loaded_modules[n]; ++n) {
+                char *s = (char *) ap_loaded_modules[n]->name;
+@@ -414,7 +418,11 @@
+        php_info_print_table_row(2, "Hostname:Port", tmp);
+
+ #if !defined(WIN32) && !defined(WINNT) && !defined(NETWARE)
++#if MODULE_MAGIC_NUMBER_MAJOR >= 20081201
++       snprintf(tmp, sizeof(tmp), "%s(%d)/%d", ap_unixd_config.user_name, ap_unixd_config.user_id, ap_unixd_config.group_id);
++#else
+        snprintf(tmp, sizeof(tmp), "%s(%d)/%d", unixd_config.user_name, unixd_config.user_id, unixd_config.group_id);
++#endif
+        php_info_print_table_row(2, "User/Group", tmp);
+ #endif
+
+diff -uNr php-5.2.17.orig/sapi/apache2handler/config.m4 php-5.2.17/sapi/apache2handler/config.m4
+--- php-5.2.17.orig/sapi/apache2handler/config.m4       2007-07-12 03:20:37.000000000 +0400
++++ php-5.2.17/sapi/apache2handler/config.m4    2017-07-12 11:12:41.318026424 +0300
+@@ -117,8 +117,16 @@
+     ;;
+   esac
+
+-  if test "$APXS_MPM" != "prefork"; then
+-    PHP_BUILD_THREAD_SAFE
++  if test "$APACHE_VERSION" -lt 2004001; then
++    APXS_MPM=`$APXS -q MPM_NAME`
++    if test "$APXS_MPM" != "prefork"; then
++       PHP_BUILD_THREAD_SAFE
++    fi
++  else
++    APACHE_THREADED_MPM=`$APXS_HTTPD -V | grep 'threaded:.*yes'`
++    if test -n "$APACHE_THREADED_MPM"; then
++       PHP_BUILD_THREAD_SAFE
++    fi
+   fi
+   AC_MSG_RESULT(yes)
+   PHP_SUBST(APXS)
